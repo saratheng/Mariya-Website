@@ -1,0 +1,312 @@
+<!DOCTYPE html>
+<html lang="km">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ម៉ារីយ៉ា បោះដុំ សំលៀកបំពាក់</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@400;600;700&display=swap" rel="stylesheet">
+  <style> body { font-family: 'Kantumruy Pro', sans-serif; } </style>
+</head>
+<body class="bg-gray-100 min-h-screen pb-10">
+
+  <!-- Header Section -->
+  <header class="bg-white p-4 shadow-sm text-center max-w-md mx-auto relative">
+    <div class="flex items-center justify-center gap-3">
+      <a href="https://www.facebook.com/mariya.fashion168" target="_blank">
+        <img src="https://i.ibb.co/bRJt9Wbn/logo.jpg" alt="Logo" class="w-14 h-14 rounded-full border object-cover">
+      </a>
+      <div class="text-left">
+        <a href="https://www.facebook.com/mariya.fashion168" target="_blank" class="hover:underline">
+          <h1 class="text-lg font-bold text-red-600 leading-tight">ម៉ារីយ៉ា បោះដុំ សំលៀកបំពាក់</h1>
+        </a>
+        <p class="text-xs text-gray-500">បោះដុំសំលៀកបំពាក់ កាត់ពីរោងចក្រផ្ទាល់</p>
+
+        <div class="flex items-center gap-3 mt-1.5 text-sm">
+          <a href="https://www.facebook.com/mariya.fashion168" target="_blank" class="text-blue-600"><i class="fa-brands fa-square-facebook text-xl"></i></a>
+          <a href="https://t.me/+85599706595" target="_blank" class="text-sky-500"><i class="fa-brands fa-telegram text-xl"></i></a>
+          <a href="tel:099706595" class="flex items-center gap-1 font-bold text-gray-800 text-xs">
+            <i class="fa-solid fa-phone text-red-500"></i>
+            <span>099706595</span>
+          </a>
+        </div>
+      </div>
+    </div>
+    
+    <nav class="flex justify-between items-center text-xs mt-4 pt-2 border-t font-semibold text-gray-700">
+      <button onclick="filterCategory('all')" id="cat-all" class="text-blue-600 underline font-bold">ទាំងអស់</button>
+      <span>|</span>
+      <button onclick="filterCategory('women')" id="cat-women" class="hover:text-blue-600 font-semibold">ខោអាវនារី</button>
+      <span>|</span>
+      <button onclick="filterCategory('men')" id="cat-men" class="hover:text-blue-600 font-semibold">ខោអាវបុរស</button>
+      <span>|</span>
+      <button onclick="filterCategory('kids')" id="cat-kids" class="hover:text-blue-600 font-semibold">ខោអាវក្មេង</button>
+      <span>|</span>
+      <button id="auth-btn" onclick="handleAuthAction()" class="bg-blue-600 text-white px-2 py-1 rounded">Login</button>
+    </nav>
+  </header>
+
+  <!-- Product Grid -->
+  <main class="max-w-md mx-auto p-3">
+    <div id="product-list" class="grid grid-cols-2 gap-3"></div>
+  </main>
+
+  <!-- Image Enlarge Modal -->
+  <div id="image-modal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-4 z-50 cursor-pointer" onclick="closeImageModal()">
+    <div class="relative max-w-sm w-full bg-white p-2 rounded-lg shadow-2xl" onclick="event.stopPropagation()">
+      <button onclick="closeImageModal()" class="absolute -top-3 -right-3 bg-red-600 text-white font-bold rounded-full w-8 h-8 flex items-center justify-center">✕</button>
+      <img id="enlarged-img" src="" class="w-full h-auto rounded object-contain max-h-[80vh]">
+    </div>
+  </div>
+
+  <!-- Admin Login Modal (Email & Password) -->
+  <div id="login-modal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center p-4 z-50">
+    <div class="bg-white p-5 rounded-lg w-full max-w-xs text-center shadow-lg">
+      <h3 class="text-base font-bold mb-3">ចូលប្រើប្រាស់ជា Admin</h3>
+      <input type="email" id="admin-email" placeholder="អ៊ីមែល (Email)..." class="border p-2 w-full rounded mb-2 text-sm border-gray-300 outline-none">
+      <input type="password" id="admin-pass" placeholder="ពាក្យសម្ងាត់ (Password)..." class="border p-2 w-full rounded mb-3 text-sm border-gray-300 outline-none">
+      <div class="flex justify-end gap-2">
+        <button onclick="closeModal()" class="px-3 py-1 text-xs bg-gray-300 rounded">បោះបង់</button>
+        <button onclick="verifyAdmin()" id="login-btn-submit" class="px-3 py-1 text-xs bg-blue-600 text-white rounded">ចូល</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Firebase SDK & Script -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getDatabase, ref, onValue, push, set, remove, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
+    import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+
+    // Firebase Config
+    const firebaseConfig = {
+      apiKey: "AIzaSyClzkcK4w6kMTfCdUNWxFNhB4wTrhoOquo",
+      authDomain: "mariya-website.firebaseapp.com",
+      databaseURL: "https://mariya-website-default-rtdb.asia-southeast1.firebasedatabase.app",
+      projectId: "mariya-website",
+      storageBucket: "mariya-website.firebasestorage.app",
+      messagingSenderId: "751144030956",
+      appId: "1:751144030956:web:3b0ceebcf1ef41a4380bc9",
+      measurementId: "G-RH6MF94XPT"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const auth = getAuth(app);
+
+    // ImgBB API Key
+    const IMGBB_API_KEY = "7e51fdb1c14c7e8e33f76c98d9177408";
+
+    window.isAdmin = false;
+    window.currentCategory = "all";
+    let productsList = [];
+
+    // តាមដានស្ថានភាព Login របស់ Admin ដោយស្វ័យប្រវត្តិ
+    onAuthStateChanged(auth, (user) => {
+      if (user) {
+        window.isAdmin = true;
+        document.getElementById("auth-btn").innerText = "Logout (Admin)";
+        document.getElementById("auth-btn").className = "bg-red-600 text-white px-2 py-1 rounded";
+      } else {
+        window.isAdmin = false;
+        document.getElementById("auth-btn").innerText = "Login";
+        document.getElementById("auth-btn").className = "bg-blue-600 text-white px-2 py-1 rounded";
+      }
+      renderProducts();
+    });
+
+    // ទាញយកទិន្នន័យពី Firebase Database
+    const productsRef = ref(db, 'products');
+    onValue(productsRef, (snapshot) => {
+      const data = snapshot.val();
+      productsList = [];
+      if (data) {
+        Object.keys(data).forEach(key => {
+          productsList.push({ id: key, ...data[key] });
+        });
+      }
+      renderProducts();
+    });
+
+    window.filterCategory = function(cat) {
+      window.currentCategory = cat;
+      const categories = ['all', 'women', 'men', 'kids'];
+      categories.forEach(c => {
+        const btn = document.getElementById(`cat-${c}`);
+        btn.className = (c === cat) ? "text-blue-600 underline font-bold" : "hover:text-blue-600 font-semibold";
+      });
+      renderProducts();
+    };
+
+    function renderProducts() {
+      const container = document.getElementById("product-list");
+      container.innerHTML = "";
+
+      const filtered = window.currentCategory === "all" ? productsList : productsList.filter(p => p.category === window.currentCategory);
+
+      filtered.forEach((p) => {
+        container.innerHTML += `
+          <div class="bg-white p-2 rounded-xl border relative flex flex-col items-center shadow-sm">
+            ${window.isAdmin ? `<button onclick="deleteProduct('${p.id}')" class="absolute top-1 right-1 bg-red-100 text-red-500 rounded-full w-6 h-6 flex items-center justify-center font-bold text-xs z-10">✕</button>` : ''}
+            
+            <div class="relative group cursor-pointer w-full flex justify-center" onclick="openImageModal('${p.image || 'https://via.placeholder.com/150'}')">
+              <img src="${p.image || 'https://via.placeholder.com/150'}" class="w-28 h-36 object-cover rounded-lg mb-2">
+              <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/20 rounded-lg transition-opacity">
+                <i class="fa-solid fa-magnifying-glass-plus text-white text-lg"></i>
+              </div>
+            </div>
+            
+            <div class="w-full text-xs space-y-1.5">
+              ${window.isAdmin ? `
+                <div class="space-y-1 mb-1">
+                  <label id="upload-label-${p.id}" class="block text-center bg-gray-100 hover:bg-gray-200 text-gray-700 py-1 px-2 rounded cursor-pointer text-[10px] border">
+                    <i class="fa-solid fa-upload"></i> ជ្រើសរើសរូបភាព...
+                    <input type="file" accept="image/*" class="hidden" onchange="uploadImage('${p.id}', this)">
+                  </label>
+
+                  <select onchange="updateProduct('${p.id}', 'category', this.value)" class="border text-xs rounded p-0.5 w-full bg-gray-50">
+                    <option value="women" ${p.category === 'women' ? 'selected' : ''}>ខោអាវនារី</option>
+                    <option value="men" ${p.category === 'men' ? 'selected' : ''}>ខោអាវបុរស</option>
+                    <option value="kids" ${p.category === 'kids' ? 'selected' : ''}>ខោអាវក្មេង</option>
+                  </select>
+                </div>
+              ` : ''}
+
+              <div class="flex items-center justify-center gap-2">
+                ${window.isAdmin ? `
+                  <div class="flex items-center gap-0.5"><input type="text" value="${p.price}" onchange="updateProduct('${p.id}', 'price', this.value)" class="border text-center w-12 rounded"> ៛</div>
+                  <input type="text" value="${p.note}" onchange="updateProduct('${p.id}', 'note', this.value)" class="border text-center w-12 rounded">
+                ` : `
+                  <span class="font-bold text-sm">${p.price} ៛</span>
+                  <span class="border px-1.5 py-0.5 rounded bg-gray-50 text-gray-600">${p.note}</span>
+                `}
+              </div>
+
+              <div class="flex items-center justify-center gap-1.5 text-sm text-gray-700 font-medium">
+                ${window.isAdmin ? `
+                  <span>មាន:</span>
+                  <input type="number" value="${p.stock}" onchange="updateProduct('${p.id}', 'stock', this.value)" class="border text-center w-14 rounded text-sm py-0.5">
+                  <input type="text" value="${p.unit}" onchange="updateProduct('${p.id}', 'unit', this.value)" class="border text-center w-10 rounded text-sm py-0.5">
+                ` : `
+                  <span>មាន: ${p.stock} ${p.unit}</span>
+                `}
+              </div>
+            </div>
+          </div>
+        `;
+      });
+
+      if (window.isAdmin) {
+        container.innerHTML += `
+          <div onclick="addProduct()" class="bg-white p-2 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center min-h-[180px] cursor-pointer hover:bg-gray-50">
+            <span class="text-4xl text-gray-400">+</span>
+          </div>
+        `;
+      }
+    }
+
+    // Upload រូបភាពទៅ ImgBB
+    window.uploadImage = function(id, inputElement) {
+      const file = inputElement.files[0];
+      if (!file) return;
+
+      const labelBtn = document.getElementById(`upload-label-${id}`);
+      labelBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> កំពុង Upload...`;
+
+      const formData = new FormData();
+      formData.append("image", file);
+
+      fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+        method: "POST",
+        body: formData
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          updateProduct(id, 'image', data.data.url);
+        } else {
+          alert("ការ Upload រូបភាពមានបញ្ហា!");
+          renderProducts();
+        }
+      })
+      .catch(err => {
+        alert("Error: " + err.message);
+        renderProducts();
+      });
+    };
+
+    window.addProduct = function() {
+      const defaultCat = window.currentCategory === "all" ? "women" : window.currentCategory;
+      const newRef = push(productsRef);
+      set(newRef, {
+        image: "https://via.placeholder.com/150",
+        price: "3500",
+        note: "សំគាល់",
+        stock: 35,
+        unit: "ដុំ",
+        category: defaultCat
+      });
+    };
+
+    window.deleteProduct = function(id) {
+      remove(ref(db, `products/${id}`));
+    };
+
+    window.updateProduct = function(id, field, value) {
+      update(ref(db, `products/${id}`), { [field]: value });
+    };
+
+    window.handleAuthAction = function() {
+      if (window.isAdmin) {
+        signOut(auth).then(() => {
+          alert("ចាកចេញជោគជ័យ!");
+        });
+      } else {
+        document.getElementById("login-modal").classList.remove("hidden");
+      }
+    };
+
+    // ផ្ទៀងផ្ទាត់ Admin តាមរយៈ Firebase Authentication
+    window.verifyAdmin = function() {
+      const email = document.getElementById("admin-email").value;
+      const password = document.getElementById("admin-pass").value;
+
+      if (!email || !password) {
+        alert("សូមបញ្ចូល Email និង Password ឱ្យបានត្រឹមត្រូវ!");
+        return;
+      }
+
+      const btn = document.getElementById("login-btn-submit");
+      btn.innerText = "កំពុងផ្ទៀងផ្ទាត់...";
+
+      signInWithEmailAndPassword(auth, email, password)
+        .then(() => {
+          closeModal();
+          alert("Login ជា Admin ជោគជ័យ!");
+        })
+        .catch((error) => {
+          alert("Email ឬ ពាក្យសម្ងាត់ មិនត្រឹមត្រូវឡើយ!");
+        })
+        .finally(() => {
+          btn.innerText = "ចូល";
+        });
+    };
+
+    window.closeModal = function() {
+      document.getElementById("login-modal").classList.add("hidden");
+      document.getElementById("admin-email").value = "";
+      document.getElementById("admin-pass").value = "";
+    };
+
+    window.openImageModal = function(imgSrc) {
+      document.getElementById("enlarged-img").src = imgSrc;
+      document.getElementById("image-modal").classList.remove("hidden");
+    };
+
+    window.closeImageModal = function() {
+      document.getElementById("image-modal").classList.add("hidden");
+    };
+  </script>
+</body>
+</html>
