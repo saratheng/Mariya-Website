@@ -15,7 +15,7 @@
   <header class="bg-white p-4 shadow-sm text-center max-w-md mx-auto relative">
     <div class="flex items-center justify-center gap-3">
       <a href="https://www.facebook.com/mariya.fashion168" target="_blank">
-        <img src="https://i.ibb.co/bRJt9Wbn/logo.jpg" alt="Logo" class="w-14 h-14 rounded-full border object-cover">
+        <img src="logo.jpg" alt="Logo" class="w-14 h-14 rounded-full border object-cover">
       </a>
       <div class="text-left">
         <a href="https://www.facebook.com/mariya.fashion168" target="_blank" class="hover:underline">
@@ -52,15 +52,24 @@
     <div id="product-list" class="grid grid-cols-2 gap-3"></div>
   </main>
 
-  <!-- Image Enlarge Modal -->
-  <div id="image-modal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-4 z-50 cursor-pointer" onclick="closeImageModal()">
-    <div class="relative max-w-sm w-full bg-white p-2 rounded-lg shadow-2xl" onclick="event.stopPropagation()">
-      <button onclick="closeImageModal()" class="absolute -top-3 -right-3 bg-red-600 text-white font-bold rounded-full w-8 h-8 flex items-center justify-center">✕</button>
-      <img id="enlarged-img" src="" class="w-full h-auto rounded object-contain max-h-[80vh]">
+  <!-- Image Enlarge Modal (ជាមួយមុខងារ Swipe/Next/Prev) -->
+  <div id="image-modal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-4 z-50 select-none" onclick="closeImageModal()">
+    <div class="relative max-w-sm w-full bg-white p-2 rounded-lg shadow-2xl flex items-center justify-center overflow-hidden" onclick="event.stopPropagation()">
+      <button onclick="closeImageModal()" class="absolute top-2 right-2 bg-red-600 text-white font-bold rounded-full w-8 h-8 flex items-center justify-center z-20 shadow">✕</button>
+      
+      <!-- ប៊ូតុង Prev/Next លើ Modal -->
+      <button id="modal-prev-btn" onclick="prevModalImage()" class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 text-white w-8 h-8 rounded-full flex items-center justify-center text-base hover:bg-black/80 z-20">❮</button>
+      <button id="modal-next-btn" onclick="nextModalImage()" class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 text-white w-8 h-8 rounded-full flex items-center justify-center text-base hover:bg-black/80 z-20">❯</button>
+
+      <!-- រូបភាពធំ -->
+      <div id="modal-touch-area" class="w-full flex flex-col items-center">
+        <img id="enlarged-img" src="" class="w-full h-auto rounded object-contain max-h-[75vh] transition-all duration-200">
+        <p id="modal-img-counter" class="text-xs text-gray-500 mt-2 font-medium"></p>
+      </div>
     </div>
   </div>
 
-  <!-- Admin Login Modal (Email & Password) -->
+  <!-- Admin Login Modal -->
   <div id="login-modal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center p-4 z-50">
     <div class="bg-white p-5 rounded-lg w-full max-w-xs text-center shadow-lg">
       <h3 class="text-base font-bold mb-3">ចូលប្រើប្រាស់ជា Admin</h3>
@@ -79,7 +88,6 @@
     import { getDatabase, ref, onValue, push, set, remove, update } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-database.js";
     import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 
-    // Firebase Config
     const firebaseConfig = {
       apiKey: "AIzaSyClzkcK4w6kMTfCdUNWxFNhB4wTrhoOquo",
       authDomain: "mariya-website.firebaseapp.com",
@@ -95,14 +103,19 @@
     const db = getDatabase(app);
     const auth = getAuth(app);
 
-    // ImgBB API Key
     const IMGBB_API_KEY = "7e51fdb1c14c7e8e33f76c98d9177408";
 
     window.isAdmin = false;
     window.currentCategory = "all";
     let productsList = [];
+    window.activeImgIndices = {};
 
-    // តាមដានស្ថានភាព Login របស់ Admin ដោយស្វ័យប្រវត្តិ
+    // ប្រព័ន្ធ Modal Carousel & Swipe Variables
+    let currentModalProductId = null;
+    let currentModalImgIndex = 0;
+    let touchStartX = 0;
+    let touchEndX = 0;
+
     onAuthStateChanged(auth, (user) => {
       if (user) {
         window.isAdmin = true;
@@ -116,14 +129,17 @@
       renderProducts();
     });
 
-    // ទាញយកទិន្នន័យពី Firebase Database
     const productsRef = ref(db, 'products');
     onValue(productsRef, (snapshot) => {
       const data = snapshot.val();
       productsList = [];
       if (data) {
         Object.keys(data).forEach(key => {
-          productsList.push({ id: key, ...data[key] });
+          let item = { id: key, ...data[key] };
+          if (!item.images) {
+            item.images = item.image ? [item.image] : ["https://via.placeholder.com/150"];
+          }
+          productsList.push(item);
         });
       }
       renderProducts();
@@ -146,23 +162,55 @@
       const filtered = window.currentCategory === "all" ? productsList : productsList.filter(p => p.category === window.currentCategory);
 
       filtered.forEach((p) => {
+        const images = p.images && p.images.length > 0 ? p.images : ["https://via.placeholder.com/150"];
+        if (window.activeImgIndices[p.id] === undefined || window.activeImgIndices[p.id] >= images.length) {
+          window.activeImgIndices[p.id] = 0;
+        }
+        const activeIdx = window.activeImgIndices[p.id];
+        const currentImgSrc = images[activeIdx];
+
+        let thumbnailsHTML = '';
+        if (images.length > 1) {
+          thumbnailsHTML = `
+            <div class="flex justify-center items-center gap-1 my-1 overflow-x-auto max-w-full px-1">
+              ${images.map((img, idx) => `
+                <div onclick="selectImage('${p.id}', ${idx})" class="relative group border ${idx === activeIdx ? 'border-blue-600 scale-105' : 'border-gray-200 opacity-60'} rounded cursor-pointer transition-all">
+                  <img src="${img}" class="w-6 h-7 object-cover rounded">
+                  ${window.isAdmin ? `
+                    <button onclick="event.stopPropagation(); deleteCardImage('${p.id}', ${idx})" class="absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-3.5 h-3.5 flex items-center justify-center text-[8px] font-bold">✕</button>
+                  ` : ''}
+                </div>
+              `).join('')}
+            </div>
+          `;
+        }
+
         container.innerHTML += `
           <div class="bg-white p-2 rounded-xl border relative flex flex-col items-center shadow-sm">
             ${window.isAdmin ? `<button onclick="deleteProduct('${p.id}')" class="absolute top-1 right-1 bg-red-100 text-red-500 rounded-full w-6 h-6 flex items-center justify-center font-bold text-xs z-10">✕</button>` : ''}
             
-            <div class="relative group cursor-pointer w-full flex justify-center" onclick="openImageModal('${p.image || 'https://via.placeholder.com/150'}')">
-              <img src="${p.image || 'https://via.placeholder.com/150'}" class="w-28 h-36 object-cover rounded-lg mb-2">
-              <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/20 rounded-lg transition-opacity">
-                <i class="fa-solid fa-magnifying-glass-plus text-white text-lg"></i>
+            <div class="relative group cursor-pointer w-full flex flex-col items-center">
+              <div class="relative w-full flex justify-center" onclick="openImageModal('${p.id}')">
+                <img src="${currentImgSrc}" class="w-28 h-36 object-cover rounded-lg">
+                <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/20 rounded-lg transition-opacity">
+                  <i class="fa-solid fa-magnifying-glass-plus text-white text-lg"></i>
+                </div>
               </div>
+
+              ${images.length > 1 ? `
+                <button onclick="prevImage('${p.id}', ${images.length})" class="absolute left-0 top-1/2 -translate-y-1/2 bg-black/40 text-white p-1 rounded-r text-xs hover:bg-black/70">❮</button>
+                <button onclick="nextImage('${p.id}', ${images.length})" class="absolute right-0 top-1/2 -translate-y-1/2 bg-black/40 text-white p-1 rounded-l text-xs hover:bg-black/70">❯</button>
+              ` : ''}
             </div>
-            
-            <div class="w-full text-xs space-y-1.5">
+
+            ${thumbnailsHTML}
+
+            <div class="w-full text-xs space-y-1.5 mt-1">
               ${window.isAdmin ? `
                 <div class="space-y-1 mb-1">
                   <label id="upload-label-${p.id}" class="block text-center bg-gray-100 hover:bg-gray-200 text-gray-700 py-1 px-2 rounded cursor-pointer text-[10px] border">
-                    <i class="fa-solid fa-upload"></i> ជ្រើសរើសរូបភាព...
-                    <input type="file" accept="image/*" class="hidden" onchange="uploadImage('${p.id}', this)">
+                    <i class="fa-solid fa-plus text-blue-600"></i> បន្ថែមរូបភាព (ច្រើនរូប)...
+                    <input type="file" accept="image/*" multiple class="hidden" onchange="addImagesToCard('${p.id}', this)">
                   </label>
 
                   <select onchange="updateProduct('${p.id}', 'category', this.value)" class="border text-xs rounded p-0.5 w-full bg-gray-50">
@@ -206,41 +254,80 @@
       }
     }
 
-    // Upload រូបភាពទៅ ImgBB
-    window.uploadImage = function(id, inputElement) {
-      const file = inputElement.files[0];
-      if (!file) return;
+    window.selectImage = function(id, index) {
+      window.activeImgIndices[id] = index;
+      renderProducts();
+    };
+
+    window.nextImage = function(id, total) {
+      window.activeImgIndices[id] = (window.activeImgIndices[id] + 1) % total;
+      renderProducts();
+    };
+
+    window.prevImage = function(id, total) {
+      window.activeImgIndices[id] = (window.activeImgIndices[id] - 1 + total) % total;
+      renderProducts();
+    };
+
+    window.addImagesToCard = async function(id, inputElement) {
+      const files = Array.from(inputElement.files);
+      if (files.length === 0) return;
 
       const labelBtn = document.getElementById(`upload-label-${id}`);
-      labelBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> កំពុង Upload...`;
+      const product = productsList.find(p => p.id === id);
+      
+      let currentImages = product.images ? [...product.images] : [];
+      currentImages = currentImages.filter(img => img && !img.includes('placeholder.com'));
 
-      const formData = new FormData();
-      formData.append("image", file);
+      for (let i = 0; i < files.length; i++) {
+        labelBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Upload (${i + 1}/${files.length})...`;
+        const file = files[i];
+        
+        const formData = new FormData();
+        formData.append("image", file);
 
-      fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
-        method: "POST",
-        body: formData
-      })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          updateProduct(id, 'image', data.data.url);
-        } else {
-          alert("ការ Upload រូបភាពមានបញ្ហា!");
-          renderProducts();
+        try {
+          const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+            method: "POST",
+            body: formData
+          });
+          const data = await res.json();
+
+          if (data.success) {
+            currentImages.push(data.data.url);
+          }
+        } catch (err) {
+          console.error("Upload error: ", err);
         }
-      })
-      .catch(err => {
-        alert("Error: " + err.message);
-        renderProducts();
-      });
+      }
+
+      if (currentImages.length === 0) {
+        currentImages = ["https://via.placeholder.com/150"];
+      }
+
+      window.activeImgIndices[id] = 0;
+      update(ref(db, `products/${id}`), { images: currentImages });
+    };
+
+    window.deleteCardImage = function(id, imgIdx) {
+      const product = productsList.find(p => p.id === id);
+      if (!product || !product.images) return;
+      
+      if (confirm("តើអ្នកប្រាកដថាចង់លុបរូបភាពនេះចេញមែនទេ?")) {
+        let updatedImages = product.images.filter((_, idx) => idx !== imgIdx);
+        if (updatedImages.length === 0) {
+          updatedImages = ["https://via.placeholder.com/150"];
+        }
+        window.activeImgIndices[id] = 0;
+        update(ref(db, `products/${id}`), { images: updatedImages });
+      }
     };
 
     window.addProduct = function() {
       const defaultCat = window.currentCategory === "all" ? "women" : window.currentCategory;
       const newRef = push(productsRef);
       set(newRef, {
-        image: "https://via.placeholder.com/150",
+        images: ["https://via.placeholder.com/150"],
         price: "3500",
         note: "សំគាល់",
         stock: 35,
@@ -250,7 +337,9 @@
     };
 
     window.deleteProduct = function(id) {
-      remove(ref(db, `products/${id}`));
+      if (confirm("តើអ្នកពិតជាចង់លុបទំនិញនេះទាំងមូលមែនទេ?")) {
+        remove(ref(db, `products/${id}`));
+      }
     };
 
     window.updateProduct = function(id, field, value) {
@@ -267,7 +356,6 @@
       }
     };
 
-    // ផ្ទៀងផ្ទាត់ Admin តាមរយៈ Firebase Authentication
     window.verifyAdmin = function() {
       const email = document.getElementById("admin-email").value;
       const password = document.getElementById("admin-pass").value;
@@ -299,14 +387,77 @@
       document.getElementById("admin-pass").value = "";
     };
 
-    window.openImageModal = function(imgSrc) {
-      document.getElementById("enlarged-img").src = imgSrc;
+    // --- មុខងារ ENLARGE IMAGE VIEW ជាមួយ SWIPE / NEXT / PREV ---
+
+    window.openImageModal = function(productId) {
+      currentModalProductId = productId;
+      currentModalImgIndex = window.activeImgIndices[productId] || 0;
+      updateModalImage();
       document.getElementById("image-modal").classList.remove("hidden");
     };
 
     window.closeImageModal = function() {
       document.getElementById("image-modal").classList.add("hidden");
+      currentModalProductId = null;
     };
+
+    function updateModalImage() {
+      const product = productsList.find(p => p.id === currentModalProductId);
+      if (!product || !product.images) return;
+
+      const images = product.images;
+      const imgElem = document.getElementById("enlarged-img");
+      const counterElem = document.getElementById("modal-img-counter");
+      const prevBtn = document.getElementById("modal-prev-btn");
+      const nextBtn = document.getElementById("modal-next-btn");
+
+      imgElem.src = images[currentModalImgIndex];
+      counterElem.innerText = `${currentModalImgIndex + 1} / ${images.length}`;
+
+      if (images.length > 1) {
+        prevBtn.classList.remove("hidden");
+        nextBtn.classList.remove("hidden");
+      } else {
+        prevBtn.classList.add("hidden");
+        nextBtn.classList.add("hidden");
+      }
+    }
+
+    window.nextModalImage = function() {
+      const product = productsList.find(p => p.id === currentModalProductId);
+      if (!product || !product.images) return;
+      currentModalImgIndex = (currentModalImgIndex + 1) % product.images.length;
+      updateModalImage();
+    };
+
+    window.prevModalImage = function() {
+      const product = productsList.find(p => p.id === currentModalProductId);
+      if (!product || !product.images) return;
+      currentModalImgIndex = (currentModalImgIndex - 1 + product.images.length) % product.images.length;
+      updateModalImage();
+    };
+
+    // បន្ថែម Event សម្រាប់ Swipe លើទូរស័ព្ទ (Touch Event)
+    const touchArea = document.getElementById("modal-touch-area");
+
+    touchArea.addEventListener("touchstart", (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+
+    touchArea.addEventListener("touchend", (e) => {
+      touchEndX = e.changedTouches[0].screenX;
+      handleSwipe();
+    }, { passive: true });
+
+    function handleSwipe() {
+      const swipeDistance = touchEndX - touchStartX;
+      // ប្រសិនបើកាយវិការអូសស្ទុះលើសពី 50px
+      if (swipeDistance < -50) {
+        window.nextModalImage(); // Swipe Left -> រូបបន្ទាប់
+      } else if (swipeDistance > 50) {
+        window.prevModalImage(); // Swipe Right -> រូបមុន
+      }
+    }
   </script>
 </body>
 </html>
