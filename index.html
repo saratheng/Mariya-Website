@@ -52,16 +52,14 @@
     <div id="product-list" class="grid grid-cols-2 gap-3"></div>
   </main>
 
-  <!-- Image Enlarge Modal (ជាមួយមុខងារ Swipe/Next/Prev) -->
+  <!-- Image Enlarge Modal -->
   <div id="image-modal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-4 z-50 select-none" onclick="closeImageModal()">
     <div class="relative max-w-sm w-full bg-white p-2 rounded-lg shadow-2xl flex items-center justify-center overflow-hidden" onclick="event.stopPropagation()">
       <button onclick="closeImageModal()" class="absolute top-2 right-2 bg-red-600 text-white font-bold rounded-full w-8 h-8 flex items-center justify-center z-20 shadow">✕</button>
       
-      <!-- ប៊ូតុង Prev/Next លើ Modal -->
       <button id="modal-prev-btn" onclick="prevModalImage()" class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 text-white w-8 h-8 rounded-full flex items-center justify-center text-base hover:bg-black/80 z-20">❮</button>
       <button id="modal-next-btn" onclick="nextModalImage()" class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 text-white w-8 h-8 rounded-full flex items-center justify-center text-base hover:bg-black/80 z-20">❯</button>
 
-      <!-- រូបភាពធំ -->
       <div id="modal-touch-area" class="w-full flex flex-col items-center">
         <img id="enlarged-img" src="" class="w-full h-auto rounded object-contain max-h-[75vh] transition-all duration-200">
         <p id="modal-img-counter" class="text-xs text-gray-500 mt-2 font-medium"></p>
@@ -107,10 +105,10 @@
 
     window.isAdmin = false;
     window.currentCategory = "all";
+    window.isUploadingMap = {}; // រក្សាសភាពថាតើ Card ណាខ្លះកំពុង Upload
     let productsList = [];
     window.activeImgIndices = {};
 
-    // ប្រព័ន្ធ Modal Carousel & Swipe Variables
     let currentModalProductId = null;
     let currentModalImgIndex = 0;
     let touchStartX = 0;
@@ -142,10 +140,19 @@
           productsList.push(item);
         });
       }
-      renderProducts();
+
+      // ប្រសិនបើមាន Card ណាមួយកំពុង Upload មិនត្រូវឱ្យវា Re-render ចោលទេ
+      const isAnyUploading = Object.values(window.isUploadingMap).some(status => status === true);
+      if (!isAnyUploading) {
+        renderProducts();
+      }
     });
 
     window.filterCategory = function(cat) {
+      if (Object.values(window.isUploadingMap).some(s => s === true)) {
+        alert("សូមរង់ចាំការ Upload រូបភាពឱ្យរួចរាល់សិន!");
+        return;
+      }
       window.currentCategory = cat;
       const categories = ['all', 'women', 'men', 'kids'];
       categories.forEach(c => {
@@ -168,15 +175,16 @@
         }
         const activeIdx = window.activeImgIndices[p.id];
         const currentImgSrc = images[activeIdx];
+        const isCardUploading = window.isUploadingMap[p.id] || false;
 
         let thumbnailsHTML = '';
         if (images.length > 1) {
           thumbnailsHTML = `
             <div class="flex justify-center items-center gap-1 my-1 overflow-x-auto max-w-full px-1">
               ${images.map((img, idx) => `
-                <div onclick="selectImage('${p.id}', ${idx})" class="relative group border ${idx === activeIdx ? 'border-blue-600 scale-105' : 'border-gray-200 opacity-60'} rounded cursor-pointer transition-all">
+                <div onclick="selectImage('${p.id}',${idx})" class="relative group border ${idx === activeIdx ? 'border-blue-600 scale-105' : 'border-gray-200 opacity-60'} rounded cursor-pointer transition-all">
                   <img src="${img}" class="w-6 h-7 object-cover rounded">
-                  ${window.isAdmin ? `
+                  ${window.isAdmin && !isCardUploading ? `
                     <button onclick="event.stopPropagation(); deleteCardImage('${p.id}', ${idx})" class="absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-3.5 h-3.5 flex items-center justify-center text-[8px] font-bold">✕</button>
                   ` : ''}
                 </div>
@@ -187,7 +195,7 @@
 
         container.innerHTML += `
           <div class="bg-white p-2 rounded-xl border relative flex flex-col items-center shadow-sm">
-            ${window.isAdmin ? `<button onclick="deleteProduct('${p.id}')" class="absolute top-1 right-1 bg-red-100 text-red-500 rounded-full w-6 h-6 flex items-center justify-center font-bold text-xs z-10">✕</button>` : ''}
+            ${window.isAdmin ? `<button onclick="deleteProduct('${p.id}')" ${isCardUploading ? 'disabled' : ''} class="absolute top-1 right-1 bg-red-100 text-red-500 rounded-full w-6 h-6 flex items-center justify-center font-bold text-xs z-10 disabled:opacity-50">✕</button>` : ''}
             
             <div class="relative group cursor-pointer w-full flex flex-col items-center">
               <div class="relative w-full flex justify-center" onclick="openImageModal('${p.id}')">
@@ -198,8 +206,8 @@
               </div>
 
               ${images.length > 1 ? `
-                <button onclick="prevImage('${p.id}', ${images.length})" class="absolute left-0 top-1/2 -translate-y-1/2 bg-black/40 text-white p-1 rounded-r text-xs hover:bg-black/70">❮</button>
-                <button onclick="nextImage('${p.id}', ${images.length})" class="absolute right-0 top-1/2 -translate-y-1/2 bg-black/40 text-white p-1 rounded-l text-xs hover:bg-black/70">❯</button>
+                <button onclick="prevImage('${p.id}',${images.length})" class="absolute left-0 top-1/2 -translate-y-1/2 bg-black/40 text-white p-1 rounded-r text-xs hover:bg-black/70">❮</button>
+                <button onclick="nextImage('${p.id}',${images.length})" class="absolute right-0 top-1/2 -translate-y-1/2 bg-black/40 text-white p-1 rounded-l text-xs hover:bg-black/70">❯</button>
               ` : ''}
             </div>
 
@@ -208,9 +216,10 @@
             <div class="w-full text-xs space-y-1.5 mt-1">
               ${window.isAdmin ? `
                 <div class="space-y-1 mb-1">
-                  <label id="upload-label-${p.id}" class="block text-center bg-gray-100 hover:bg-gray-200 text-gray-700 py-1 px-2 rounded cursor-pointer text-[10px] border">
-                    <i class="fa-solid fa-plus text-blue-600"></i> បន្ថែមរូបភាព (ច្រើនរូប)...
-                    <input type="file" accept="image/*" multiple class="hidden" onchange="addImagesToCard('${p.id}', this)">
+                  <label id="upload-label-${p.id}" class="block text-center ${isCardUploading ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 hover:bg-gray-200 text-gray-700'} py-1 px-2 rounded cursor-pointer text-[10px] border font-medium">
+                    <i class="${isCardUploading ? 'fa-solid fa-spinner fa-spin text-amber-600' : 'fa-solid fa-plus text-blue-600'}"></i>
+                    <span id="upload-text-${p.id}">${isCardUploading ? 'កំពុង Upload...' : 'បន្ថែមរូបភាព (ច្រើនរូប)...'}</span>
+                    <input type="file" accept="image/*" multiple class="hidden" ${isCardUploading ? 'disabled' : ''} onchange="addImagesToCard('${p.id}', this)">
                   </label>
 
                   <select onchange="updateProduct('${p.id}', 'category', this.value)" class="border text-xs rounded p-0.5 w-full bg-gray-50">
@@ -237,7 +246,7 @@
                   <input type="number" value="${p.stock}" onchange="updateProduct('${p.id}', 'stock', this.value)" class="border text-center w-14 rounded text-sm py-0.5">
                   <input type="text" value="${p.unit}" onchange="updateProduct('${p.id}', 'unit', this.value)" class="border text-center w-10 rounded text-sm py-0.5">
                 ` : `
-                  <span>មាន: ${p.stock} ${p.unit}</span>
+                  <span>មាន: ${p.stock}${p.unit}</span>
                 `}
               </div>
             </div>
@@ -273,14 +282,24 @@
       const files = Array.from(inputElement.files);
       if (files.length === 0) return;
 
-      const labelBtn = document.getElementById(`upload-label-${id}`);
+      // កំណត់ Status ថា Card នេះកំពុង Upload
+      window.isUploadingMap[id] = true;
+
+      const uploadTextElem = document.getElementById(`upload-text-${id}`);
+      const uploadLabelElem = document.getElementById(`upload-label-${id}`);
+
+      if (uploadLabelElem) {
+        uploadLabelElem.className = "block text-center bg-amber-100 text-amber-700 py-1 px-2 rounded cursor-not-allowed text-[10px] border font-medium";
+      }
+
       const product = productsList.find(p => p.id === id);
-      
-      let currentImages = product.images ? [...product.images] : [];
+      let currentImages = product && product.images ? [...product.images] : [];
       currentImages = currentImages.filter(img => img && !img.includes('placeholder.com'));
 
       for (let i = 0; i < files.length; i++) {
-        labelBtn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Upload (${i + 1}/${files.length})...`;
+        if (uploadTextElem) {
+          uploadTextElem.innerText = ` Upload (${i + 1}/${files.length})...`;
+        }
         const file = files[i];
         
         const formData = new FormData();
@@ -306,10 +325,17 @@
       }
 
       window.activeImgIndices[id] = 0;
-      update(ref(db, `products/${id}`), { images: currentImages });
+      
+      // បញ្ចប់ Upload
+      window.isUploadingMap[id] = false;
+
+      // Update ទៅ Firebase (វានឹង Trigger ឱ្យ Re-render តាមក្រោយដោយស្វ័យប្រវត្តិ)
+      await update(ref(db, `products/${id}`), { images: currentImages });
+      renderProducts();
     };
 
     window.deleteCardImage = function(id, imgIdx) {
+      if (window.isUploadingMap[id]) return;
       const product = productsList.find(p => p.id === id);
       if (!product || !product.images) return;
       
@@ -324,6 +350,10 @@
     };
 
     window.addProduct = function() {
+      if (Object.values(window.isUploadingMap).some(s => s === true)) {
+        alert("សូមរង់ចាំការ Upload រូបភាពឱ្យរួចរាល់សិន មុននឹងបន្ថែម Card ថ្មី!");
+        return;
+      }
       const defaultCat = window.currentCategory === "all" ? "women" : window.currentCategory;
       const newRef = push(productsRef);
       set(newRef, {
@@ -337,6 +367,10 @@
     };
 
     window.deleteProduct = function(id) {
+      if (window.isUploadingMap[id]) {
+        alert("មិនអាចលុប Card ដែលកំពុង Upload បានទេ!");
+        return;
+      }
       if (confirm("តើអ្នកពិតជាចង់លុបទំនិញនេះទាំងមូលមែនទេ?")) {
         remove(ref(db, `products/${id}`));
       }
@@ -387,8 +421,7 @@
       document.getElementById("admin-pass").value = "";
     };
 
-    // --- មុខងារ ENLARGE IMAGE VIEW ជាមួយ SWIPE / NEXT / PREV ---
-
+    // --- Modal Carousel Functions ---
     window.openImageModal = function(productId) {
       currentModalProductId = productId;
       currentModalImgIndex = window.activeImgIndices[productId] || 0;
@@ -437,7 +470,6 @@
       updateModalImage();
     };
 
-    // បន្ថែម Event សម្រាប់ Swipe លើទូរស័ព្ទ (Touch Event)
     const touchArea = document.getElementById("modal-touch-area");
 
     touchArea.addEventListener("touchstart", (e) => {
@@ -451,11 +483,10 @@
 
     function handleSwipe() {
       const swipeDistance = touchEndX - touchStartX;
-      // ប្រសិនបើកាយវិការអូសស្ទុះលើសពី 50px
       if (swipeDistance < -50) {
-        window.nextModalImage(); // Swipe Left -> រូបបន្ទាប់
+        window.nextModalImage();
       } else if (swipeDistance > 50) {
-        window.prevModalImage(); // Swipe Right -> រូបមុន
+        window.prevModalImage();
       }
     }
   </script>
