@@ -140,8 +140,8 @@
           productsList.push(item);
         });
 
-        // តម្រៀបទំនិញដែល Add ចុងក្រោយឱ្យនៅខាងលើគេ (Sort by createdAt descending)
-        productsList.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
+        // តម្រៀបតាម ID/Key របស់ Firebase (Reverse) ដើម្បីឱ្យ Item បង្កើតចុងក្រោយឡើងទៅលើគេ
+        productsList.sort((a, b) => b.id.localeCompare(a.id));
       }
 
       const isAnyUploading = Object.values(window.isUploadingMap).some(status => status === true);
@@ -166,12 +166,12 @@
 
     function renderProducts() {
       const container = document.getElementById("product-list");
-      container.innerHTML = "";
+      let htmlContent = "";
 
-      // ដាក់ប៊ូតុង Add (+) របស់ Admin នៅខាងលើគេបង្អស់
+      // ១. បញ្ចូលប៊ូតុង Add (+) ទៅក្នុងផ្នែកដំបូងគេបង្អស់សម្រាប់ Admin
       if (window.isAdmin) {
-        container.innerHTML += `
-          <div onclick="addProduct()" class="bg-white p-2 rounded-xl border-2 border-dashed border-blue-400 flex flex-col items-center justify-center min-h-[180px] cursor-pointer hover:bg-blue-50 transition-colors">
+        htmlContent += `
+          <div onclick="addProduct()" class="bg-white p-2 rounded-xl border-2 border-dashed border-blue-400 flex flex-col items-center justify-center min-h-[180px] cursor-pointer hover:bg-blue-50 transition-colors shadow-sm">
             <span class="text-4xl text-blue-500 font-bold">+</span>
             <span class="text-xs text-blue-600 font-semibold mt-1">បន្ថែមទំនិញថ្មី</span>
           </div>
@@ -180,6 +180,7 @@
 
       const filtered = window.currentCategory === "all" ? productsList : productsList.filter(p => p.category === window.currentCategory);
 
+      // ២. លុប Loop HTML រួចបញ្ចូល Card តាមលំដាប់លំដោយ
       filtered.forEach((p) => {
         const images = p.images && p.images.length > 0 ? p.images : ["https://via.placeholder.com/150"];
         if (window.activeImgIndices[p.id] === undefined || window.activeImgIndices[p.id] >= images.length) {
@@ -205,7 +206,7 @@
           `;
         }
 
-        container.innerHTML += `
+        htmlContent += `
           <div class="bg-white p-2 rounded-xl border relative flex flex-col items-center shadow-sm">
             ${window.isAdmin ? `<button onclick="deleteProduct('${p.id}')" ${isCardUploading ? 'disabled' : ''} class="absolute top-1 right-1 bg-red-100 text-red-500 rounded-full w-6 h-6 flex items-center justify-center font-bold text-xs z-10 disabled:opacity-50">✕</button>` : ''}
             
@@ -265,6 +266,8 @@
           </div>
         `;
       });
+
+      container.innerHTML = htmlContent;
     }
 
     window.selectImage = function(id, index) {
@@ -362,8 +365,7 @@
         note: "សំគាល់",
         stock: 35,
         unit: "ដុំ",
-        category: defaultCat,
-        createdAt: Date.now() // បន្ថែមពេលវេលាបង្កើត ដើម្បីងាយស្រួល Sort
+        category: defaultCat
       });
     };
 
