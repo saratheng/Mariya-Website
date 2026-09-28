@@ -427,4 +427,69 @@
       currentModalProductId = productId;
       currentModalImgIndex = window.activeImgIndices[productId] || 0;
       updateModalImage();
-      document.get
+      document.getElementById("image-modal").classList.remove("hidden");
+    };
+
+    window.closeImageModal = function() {
+      document.getElementById("image-modal").classList.add("hidden");
+      currentModalProductId = null;
+    };
+
+    function updateModalImage() {
+      const product = productsList.find(p => p.id === currentModalProductId);
+      if (!product || !product.images) return;
+
+      const images = product.images;
+      const imgElem = document.getElementById("enlarged-img");
+      const counterElem = document.getElementById("modal-img-counter");
+      const prevBtn = document.getElementById("modal-prev-btn");
+      const nextBtn = document.getElementById("modal-next-btn");
+
+      imgElem.src = images[currentModalImgIndex];
+      counterElem.innerText = `${currentModalImgIndex + 1} / ${images.length}`;
+
+      if (images.length > 1) {
+        prevBtn.classList.remove("hidden");
+        nextBtn.classList.remove("hidden");
+      } else {
+        prevBtn.classList.add("hidden");
+        nextBtn.classList.add("hidden");
+      }
+    }
+
+    window.nextModalImage = function() {
+      const product = productsList.find(p => p.id === currentModalProductId);
+      if (!product || !product.images) return;
+      currentModalImgIndex = (currentModalImgIndex + 1) % product.images.length;
+      updateModalImage();
+    };
+
+    window.prevModalImage = function() {
+      const product = productsList.find(p => p.id === currentModalProductId);
+      if (!product || !product.images) return;
+      currentModalImgIndex = (currentModalImgIndex - 1 + product.images.length) % product.images.length;
+      updateModalImage();
+    };
+
+    const touchArea = document.getElementById("modal-touch-area");
+
+    touchArea.addEventListener("touchstart", (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+
+    touchArea.addEventListener("touchend", (e) => {
+      touchEndX = e.changedTouches[0].screenX;
+      handleSwipe();
+    }, { passive: true });
+
+    function handleSwipe() {
+      const swipeDistance = touchEndX - touchStartX;
+      if (swipeDistance < -50) {
+        window.nextModalImage();
+      } else if (swipeDistance > 50) {
+        window.prevModalImage();
+      }
+    }
+  </script>
+</body>
+</html>
