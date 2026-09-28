@@ -105,7 +105,7 @@
 
     window.isAdmin = false;
     window.currentCategory = "all";
-    window.isUploadingMap = {}; // រក្សាសភាពថាតើ Card ណាខ្លះកំពុង Upload
+    window.isUploadingMap = {}; 
     let productsList = [];
     window.activeImgIndices = {};
 
@@ -139,9 +139,11 @@
           }
           productsList.push(item);
         });
+
+        // តម្រៀបទំនិញដែល Add ចុងក្រោយឱ្យនៅខាងលើគេ (Sort by createdAt descending)
+        productsList.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));
       }
 
-      // ប្រសិនបើមាន Card ណាមួយកំពុង Upload មិនត្រូវឱ្យវា Re-render ចោលទេ
       const isAnyUploading = Object.values(window.isUploadingMap).some(status => status === true);
       if (!isAnyUploading) {
         renderProducts();
@@ -165,6 +167,16 @@
     function renderProducts() {
       const container = document.getElementById("product-list");
       container.innerHTML = "";
+
+      // ដាក់ប៊ូតុង Add (+) របស់ Admin នៅខាងលើគេបង្អស់
+      if (window.isAdmin) {
+        container.innerHTML += `
+          <div onclick="addProduct()" class="bg-white p-2 rounded-xl border-2 border-dashed border-blue-400 flex flex-col items-center justify-center min-h-[180px] cursor-pointer hover:bg-blue-50 transition-colors">
+            <span class="text-4xl text-blue-500 font-bold">+</span>
+            <span class="text-xs text-blue-600 font-semibold mt-1">បន្ថែមទំនិញថ្មី</span>
+          </div>
+        `;
+      }
 
       const filtered = window.currentCategory === "all" ? productsList : productsList.filter(p => p.category === window.currentCategory);
 
@@ -253,14 +265,6 @@
           </div>
         `;
       });
-
-      if (window.isAdmin) {
-        container.innerHTML += `
-          <div onclick="addProduct()" class="bg-white p-2 rounded-xl border-2 border-dashed border-gray-300 flex items-center justify-center min-h-[180px] cursor-pointer hover:bg-gray-50">
-            <span class="text-4xl text-gray-400">+</span>
-          </div>
-        `;
-      }
     }
 
     window.selectImage = function(id, index) {
@@ -282,7 +286,6 @@
       const files = Array.from(inputElement.files);
       if (files.length === 0) return;
 
-      // កំណត់ Status ថា Card នេះកំពុង Upload
       window.isUploadingMap[id] = true;
 
       const uploadTextElem = document.getElementById(`upload-text-${id}`);
@@ -325,11 +328,8 @@
       }
 
       window.activeImgIndices[id] = 0;
-      
-      // បញ្ចប់ Upload
       window.isUploadingMap[id] = false;
 
-      // Update ទៅ Firebase (វានឹង Trigger ឱ្យ Re-render តាមក្រោយដោយស្វ័យប្រវត្តិ)
       await update(ref(db, `products/${id}`), { images: currentImages });
       renderProducts();
     };
@@ -362,7 +362,8 @@
         note: "សំគាល់",
         stock: 35,
         unit: "ដុំ",
-        category: defaultCat
+        category: defaultCat,
+        createdAt: Date.now() // បន្ថែមពេលវេលាបង្កើត ដើម្បីងាយស្រួល Sort
       });
     };
 
@@ -426,69 +427,4 @@
       currentModalProductId = productId;
       currentModalImgIndex = window.activeImgIndices[productId] || 0;
       updateModalImage();
-      document.getElementById("image-modal").classList.remove("hidden");
-    };
-
-    window.closeImageModal = function() {
-      document.getElementById("image-modal").classList.add("hidden");
-      currentModalProductId = null;
-    };
-
-    function updateModalImage() {
-      const product = productsList.find(p => p.id === currentModalProductId);
-      if (!product || !product.images) return;
-
-      const images = product.images;
-      const imgElem = document.getElementById("enlarged-img");
-      const counterElem = document.getElementById("modal-img-counter");
-      const prevBtn = document.getElementById("modal-prev-btn");
-      const nextBtn = document.getElementById("modal-next-btn");
-
-      imgElem.src = images[currentModalImgIndex];
-      counterElem.innerText = `${currentModalImgIndex + 1} / ${images.length}`;
-
-      if (images.length > 1) {
-        prevBtn.classList.remove("hidden");
-        nextBtn.classList.remove("hidden");
-      } else {
-        prevBtn.classList.add("hidden");
-        nextBtn.classList.add("hidden");
-      }
-    }
-
-    window.nextModalImage = function() {
-      const product = productsList.find(p => p.id === currentModalProductId);
-      if (!product || !product.images) return;
-      currentModalImgIndex = (currentModalImgIndex + 1) % product.images.length;
-      updateModalImage();
-    };
-
-    window.prevModalImage = function() {
-      const product = productsList.find(p => p.id === currentModalProductId);
-      if (!product || !product.images) return;
-      currentModalImgIndex = (currentModalImgIndex - 1 + product.images.length) % product.images.length;
-      updateModalImage();
-    };
-
-    const touchArea = document.getElementById("modal-touch-area");
-
-    touchArea.addEventListener("touchstart", (e) => {
-      touchStartX = e.changedTouches[0].screenX;
-    }, { passive: true });
-
-    touchArea.addEventListener("touchend", (e) => {
-      touchEndX = e.changedTouches[0].screenX;
-      handleSwipe();
-    }, { passive: true });
-
-    function handleSwipe() {
-      const swipeDistance = touchEndX - touchStartX;
-      if (swipeDistance < -50) {
-        window.nextModalImage();
-      } else if (swipeDistance > 50) {
-        window.prevModalImage();
-      }
-    }
-  </script>
-</body>
-</html>
+      document.get
