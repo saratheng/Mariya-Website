@@ -91,7 +91,7 @@
       authDomain: "mariya-website.firebaseapp.com",
       databaseURL: "https://mariya-website-default-rtdb.asia-southeast1.firebasedatabase.app",
       projectId: "mariya-website",
-      storageBucket: "mariya-website.firebasestorage.app",
+      storageBucket: "mariya-website.appspot.com",
       messagingSenderId: "751144030956",
       appId: "1:751144030956:web:3b0ceebcf1ef41a4380bc9",
       measurementId: "G-RH6MF94XPT"
@@ -101,7 +101,9 @@
     const db = getDatabase(app);
     const auth = getAuth(app);
 
-    const IMGBB_API_KEY = "7e51fdb1c14c7e8e33f76c98d9177408";
+    // Cloudinary Credentials
+    const CLOUDINARY_CLOUD_NAME = "v45qcglj";
+    const CLOUDINARY_PRESET = "mariya_preset";
 
     window.isAdmin = false;
     window.currentCategory = "all";
@@ -140,7 +142,6 @@
           productsList.push(item);
         });
 
-        // តម្រៀបតាម ID/Key របស់ Firebase (Reverse) ដើម្បីឱ្យ Item បង្កើតចុងក្រោយឡើងទៅលើគេ
         productsList.sort((a, b) => b.id.localeCompare(a.id));
       }
 
@@ -168,7 +169,6 @@
       const container = document.getElementById("product-list");
       let htmlContent = "";
 
-      // ១. បញ្ចូលប៊ូតុង Add (+) ទៅក្នុងផ្នែកដំបូងគេបង្អស់សម្រាប់ Admin
       if (window.isAdmin) {
         htmlContent += `
           <div onclick="addProduct()" class="bg-white p-2 rounded-xl border-2 border-dashed border-blue-400 flex flex-col items-center justify-center min-h-[180px] cursor-pointer hover:bg-blue-50 transition-colors shadow-sm">
@@ -180,7 +180,6 @@
 
       const filtered = window.currentCategory === "all" ? productsList : productsList.filter(p => p.category === window.currentCategory);
 
-      // ២. លុប Loop HTML រួចបញ្ចូល Card តាមលំដាប់លំដោយ
       filtered.forEach((p) => {
         const images = p.images && p.images.length > 0 ? p.images : ["https://via.placeholder.com/150"];
         if (window.activeImgIndices[p.id] === undefined || window.activeImgIndices[p.id] >= images.length) {
@@ -195,7 +194,7 @@
           thumbnailsHTML = `
             <div class="flex justify-center items-center gap-1 my-1 overflow-x-auto max-w-full px-1">
               ${images.map((img, idx) => `
-                <div onclick="selectImage('${p.id}',${idx})" class="relative group border ${idx === activeIdx ? 'border-blue-600 scale-105' : 'border-gray-200 opacity-60'} rounded cursor-pointer transition-all">
+                <div onclick="selectImage('${p.id}', ${idx})" class="relative group border ${idx === activeIdx ? 'border-blue-600 scale-105' : 'border-gray-200 opacity-60'} rounded cursor-pointer transition-all">
                   <img src="${img}" class="w-6 h-7 object-cover rounded">
                   ${window.isAdmin && !isCardUploading ? `
                     <button onclick="event.stopPropagation(); deleteCardImage('${p.id}', ${idx})" class="absolute -top-1 -right-1 bg-red-600 text-white rounded-full w-3.5 h-3.5 flex items-center justify-center text-[8px] font-bold">✕</button>
@@ -219,8 +218,8 @@
               </div>
 
               ${images.length > 1 ? `
-                <button onclick="prevImage('${p.id}',${images.length})" class="absolute left-0 top-1/2 -translate-y-1/2 bg-black/40 text-white p-1 rounded-r text-xs hover:bg-black/70">❮</button>
-                <button onclick="nextImage('${p.id}',${images.length})" class="absolute right-0 top-1/2 -translate-y-1/2 bg-black/40 text-white p-1 rounded-l text-xs hover:bg-black/70">❯</button>
+                <button onclick="prevImage('${p.id}', ${images.length})" class="absolute left-0 top-1/2 -translate-y-1/2 bg-black/40 text-white p-1 rounded-r text-xs hover:bg-black/70">❮</button>
+                <button onclick="nextImage('${p.id}', ${images.length})" class="absolute right-0 top-1/2 -translate-y-1/2 bg-black/40 text-white p-1 rounded-l text-xs hover:bg-black/70">❯</button>
               ` : ''}
             </div>
 
@@ -259,7 +258,7 @@
                   <input type="number" value="${p.stock}" onchange="updateProduct('${p.id}', 'stock', this.value)" class="border text-center w-14 rounded text-sm py-0.5">
                   <input type="text" value="${p.unit}" onchange="updateProduct('${p.id}', 'unit', this.value)" class="border text-center w-10 rounded text-sm py-0.5">
                 ` : `
-                  <span>មាន: ${p.stock}${p.unit}</span>
+                  <span>មាន: ${p.stock} ${p.unit}</span>
                 `}
               </div>
             </div>
@@ -285,6 +284,7 @@
       renderProducts();
     };
 
+    // Upload រូបភាពចូល Cloudinary ផ្ទាល់
     window.addImagesToCard = async function(id, inputElement) {
       const files = Array.from(inputElement.files);
       if (files.length === 0) return;
@@ -309,20 +309,23 @@
         const file = files[i];
         
         const formData = new FormData();
-        formData.append("image", file);
+        formData.append("file", file);
+        formData.append("upload_preset", CLOUDINARY_PRESET);
 
         try {
-          const res = await fetch(`https://api.imgbb.com/1/upload?key=${IMGBB_API_KEY}`, {
+          const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, {
             method: "POST",
             body: formData
           });
           const data = await res.json();
 
-          if (data.success) {
-            currentImages.push(data.data.url);
+          if (data.secure_url) {
+            currentImages.push(data.secure_url);
+          } else {
+            console.error("Cloudinary upload failed: ", data);
           }
         } catch (err) {
-          console.error("Upload error: ", err);
+          console.error("Cloudinary Upload error: ", err);
         }
       }
 
@@ -371,7 +374,7 @@
 
     window.deleteProduct = function(id) {
       if (window.isUploadingMap[id]) {
-        alert("មិនអាចលុប Card ដែលកំពុង Upload បានទេ!");
+        alert("មិនអាចលុប Card ដែលកំពុង Upload ได้ទេ!");
         return;
       }
       if (confirm("តើអ្នកពិតជាចង់លុបទំនិញនេះទាំងមូលមែនទេ?")) {
@@ -424,7 +427,6 @@
       document.getElementById("admin-pass").value = "";
     };
 
-    // --- Modal Carousel Functions ---
     window.openImageModal = function(productId) {
       currentModalProductId = productId;
       currentModalImgIndex = window.activeImgIndices[productId] || 0;
