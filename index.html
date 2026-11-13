@@ -76,7 +76,6 @@
 
           <p id="modal-img-counter" class="text-xs text-gray-500 font-medium"></p>
           
-          <!-- ប្រអប់ទទេសម្រាប់តុល្យភាពទីតាំងលេខរាប់ឱ្យនៅចំកណ្តាល -->
           <div class="w-8"></div>
         </div>
       </div>
@@ -490,7 +489,7 @@
       updateModalImage();
     };
 
-    // មុខងារ Download រូបភាពចូលទូរស័ព្ទ/កុំព្យូទ័រ
+    // មុខងារ Download រូបភាព (Hybrid Method: Save File & Fallback Tab)
     window.downloadModalImage = async function() {
       const product = productsList.find(p => p.id === currentModalProductId);
       if (!product || !product.images) return;
@@ -503,7 +502,7 @@
       spinnerElem.classList.remove("hidden");
 
       try {
-        const response = await fetch(imgUrl);
+        const response = await fetch(imgUrl, { mode: 'cors' });
         const blob = await response.blob();
         const blobUrl = URL.createObjectURL(blob);
 
@@ -515,7 +514,7 @@
         document.body.removeChild(link);
         URL.revokeObjectURL(blobUrl);
       } catch (err) {
-        // ប្រសិនបើ Browser ខ្លះរារាំង CORS ឱ្យបើករូបភាពផ្ទាល់ដើម្បី Save
+        console.warn("Direct download restricted, opening in new tab...", err);
         window.open(imgUrl, "_blank");
       } finally {
         iconElem.classList.remove("hidden");
