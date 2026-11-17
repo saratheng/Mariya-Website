@@ -169,6 +169,7 @@
       const container = document.getElementById("product-list");
       let htmlContent = "";
 
+      // 1. បង្កើតប៊ូតុង Add ឱ្យនៅខាងលើគេបង្អស់ជានិច្ចសម្រាប់ Admin
       if (window.isAdmin) {
         htmlContent += `
           <div onclick="addProduct()" class="bg-white p-2 rounded-xl border-2 border-dashed border-blue-400 flex flex-col items-center justify-center min-h-[180px] cursor-pointer hover:bg-blue-50 transition-colors shadow-sm">
@@ -178,8 +179,10 @@
         `;
       }
 
+      // 2. فلទរតាម Category ដែលបានរើស
       const filtered = window.currentCategory === "all" ? productsList : productsList.filter(p => p.category === window.currentCategory);
 
+      // 3. បន្ថែមបញ្ជីផលិតផលបន្ទាប់ពីប៊ូតុង Add
       filtered.forEach((p) => {
         const images = p.images && p.images.length > 0 ? p.images : ["https://via.placeholder.com/150"];
         if (window.activeImgIndices[p.id] === undefined || window.activeImgIndices[p.id] >= images.length) {
