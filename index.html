@@ -55,29 +55,14 @@
   <!-- Image Enlarge Modal -->
   <div id="image-modal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-4 z-50 select-none" onclick="closeImageModal()">
     <div class="relative max-w-sm w-full bg-white p-2 rounded-lg shadow-2xl flex items-center justify-center overflow-hidden" onclick="event.stopPropagation()">
-      <button onclick="closeImageModal()" class="absolute top-3 right-3 bg-red-600 text-white font-bold rounded-full w-8 h-8 flex items-center justify-center z-20 shadow">✕</button>
+      <button onclick="closeImageModal()" class="absolute top-2 right-2 bg-red-600 text-white font-bold rounded-full w-8 h-8 flex items-center justify-center z-20 shadow">✕</button>
       
-      <button id="modal-prev-btn" onclick="prevModalImage()" class="absolute left-3 top-1/2 -translate-y-1/2 bg-black/50 text-white w-8 h-8 rounded-full flex items-center justify-center text-base hover:bg-black/80 z-20">❮</button>
-      <button id="modal-next-btn" onclick="nextModalImage()" class="absolute right-3 top-1/2 -translate-y-1/2 bg-black/50 text-white w-8 h-8 rounded-full flex items-center justify-center text-base hover:bg-black/80 z-20">❯</button>
+      <button id="modal-prev-btn" onclick="prevModalImage()" class="absolute left-2 top-1/2 -translate-y-1/2 bg-black/50 text-white w-8 h-8 rounded-full flex items-center justify-center text-base hover:bg-black/80 z-20">❮</button>
+      <button id="modal-next-btn" onclick="nextModalImage()" class="absolute right-2 top-1/2 -translate-y-1/2 bg-black/50 text-white w-8 h-8 rounded-full flex items-center justify-center text-base hover:bg-black/80 z-20">❯</button>
 
       <div id="modal-touch-area" class="w-full flex flex-col items-center">
         <img id="enlarged-img" src="" class="w-full h-auto rounded object-contain max-h-[75vh] transition-all duration-200">
-        
-        <!-- របារខាងក្រោម៖ ប៊ូតុង Download នៅខាងឆ្វេង និងលេខរាប់នៅកណ្តាល -->
-        <div class="w-full flex items-center justify-between mt-2 px-1">
-          <button id="modal-download-btn" onclick="downloadModalImage()" title="ទាញយករូបភាព" class="w-8 h-8 rounded-lg bg-gradient-to-b from-indigo-400 to-blue-600 hover:from-indigo-500 hover:to-blue-700 text-white flex items-center justify-center shadow-sm active:scale-95 transition-all">
-            <svg id="download-icon" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-              <path d="M12 4v11"/>
-              <path d="m7 11 5 5 5-5"/>
-              <path d="M5 19h14"/>
-            </svg>
-            <i id="download-spinner" class="fa-solid fa-spinner fa-spin text-xs hidden"></i>
-          </button>
-
-          <p id="modal-img-counter" class="text-xs text-gray-500 font-medium"></p>
-          
-          <div class="w-8"></div>
-        </div>
+        <p id="modal-img-counter" class="text-xs text-gray-500 mt-2 font-medium"></p>
       </div>
     </div>
   </div>
@@ -299,6 +284,7 @@
       renderProducts();
     };
 
+    // Upload រូបភាពចូល Cloudinary ផ្ទាល់
     window.addImagesToCard = async function(id, inputElement) {
       const files = Array.from(inputElement.files);
       if (files.length === 0) return;
@@ -388,7 +374,7 @@
 
     window.deleteProduct = function(id) {
       if (window.isUploadingMap[id]) {
-        alert("មិនអាចលុប Card ដែលកំពុង Upload បានទេ!");
+        alert("មិនអាចលុប Card ដែលកំពុង Upload ได้ទេ!");
         return;
       }
       if (confirm("តើអ្នកពិតជាចង់លុបទំនិញនេះទាំងមូលមែនទេ?")) {
@@ -487,39 +473,6 @@
       if (!product || !product.images) return;
       currentModalImgIndex = (currentModalImgIndex - 1 + product.images.length) % product.images.length;
       updateModalImage();
-    };
-
-    // មុខងារ Download រូបភាព (Hybrid Method: Save File & Fallback Tab)
-    window.downloadModalImage = async function() {
-      const product = productsList.find(p => p.id === currentModalProductId);
-      if (!product || !product.images) return;
-
-      const imgUrl = product.images[currentModalImgIndex];
-      const iconElem = document.getElementById("download-icon");
-      const spinnerElem = document.getElementById("download-spinner");
-
-      iconElem.classList.add("hidden");
-      spinnerElem.classList.remove("hidden");
-
-      try {
-        const response = await fetch(imgUrl, { mode: 'cors' });
-        const blob = await response.blob();
-        const blobUrl = URL.createObjectURL(blob);
-
-        const link = document.createElement("a");
-        link.href = blobUrl;
-        link.download = `mariya_${product.id}_${currentModalImgIndex + 1}.jpg`;
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        URL.revokeObjectURL(blobUrl);
-      } catch (err) {
-        console.warn("Direct download restricted, opening in new tab...", err);
-        window.open(imgUrl, "_blank");
-      } finally {
-        iconElem.classList.remove("hidden");
-        spinnerElem.classList.add("hidden");
-      }
     };
 
     const touchArea = document.getElementById("modal-touch-area");
