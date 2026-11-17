@@ -7,10 +7,7 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
   <link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@400;600;700&display=swap" rel="stylesheet">
-  <style> 
-    body { font-family: 'Kantumruy Pro', sans-serif; }
-    .add-card-btn { order: -9999 !important; }
-  </style>
+  <style> body { font-family: 'Kantumruy Pro', sans-serif; } </style>
 </head>
 <body class="bg-gray-100 min-h-screen pb-10">
 
@@ -55,6 +52,37 @@
     <div id="product-list" class="grid grid-cols-2 gap-3"></div>
   </main>
 
+  <!-- Image Enlarge Modal -->
+  <div id="image-modal" class="fixed inset-0 bg-black/80 hidden flex items-center justify-center p-4 z-50 select-none" onclick="closeImageModal()">
+    <div class="relative max-w-sm w-full bg-white p-2 rounded-lg shadow-2xl flex items-center justify-center overflow-hidden" onclick="event.stopPropagation()">
+      <button onclick="closeImageModal()" class="absolute top-3 right-3 bg-red-600 text-white font-bold rounded-full w-8 h-8 flex items-center justify-center z-20 shadow">✕</button>
+      
+      <button id="modal-prev-btn" onclick="prevModalImage()" class="absolute left-3 top-1/2 -translate-y-1/2 bg-black/50 text-white w-8 h-8 rounded-full flex items-center justify-center text-base hover:bg-black/80 z-20">❮</button>
+      <button id="modal-next-btn" onclick="nextModalImage()" class="absolute right-3 top-1/2 -translate-y-1/2 bg-black/50 text-white w-8 h-8 rounded-full flex items-center justify-center text-base hover:bg-black/80 z-20">❯</button>
+
+      <div id="modal-touch-area" class="w-full flex flex-col items-center">
+        <img id="enlarged-img" src="" class="w-full h-auto rounded object-contain max-h-[75vh] transition-all duration-200">
+        
+        <!-- របារខាងក្រោម៖ ប៊ូតុង Download នៅខាងឆ្វេង និងលេខរាប់នៅកណ្តាល -->
+        <div class="w-full flex items-center justify-between mt-2 px-1">
+          <button id="modal-download-btn" onclick="downloadModalImage()" title="ទាញយករូបភាព" class="w-8 h-8 rounded-lg bg-gradient-to-b from-indigo-400 to-blue-600 hover:from-indigo-500 hover:to-blue-700 text-white flex items-center justify-center shadow-sm active:scale-95 transition-all">
+            <svg id="download-icon" class="w-5 h-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+              <path d="M12 4v11"/>
+              <path d="m7 11 5 5 5-5"/>
+              <path d="M5 19h14"/>
+            </svg>
+            <i id="download-spinner" class="fa-solid fa-spinner fa-spin text-xs hidden"></i>
+          </button>
+
+          <p id="modal-img-counter" class="text-xs text-gray-500 font-medium"></p>
+          
+          <!-- ប្រអប់ទទេសម្រាប់តុល្យភាពទីតាំងលេខរាប់ឱ្យនៅចំកណ្តាល -->
+          <div class="w-8"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <!-- Admin Login Modal -->
   <div id="login-modal" class="fixed inset-0 bg-black/50 hidden flex items-center justify-center p-4 z-50">
     <div class="bg-white p-5 rounded-lg w-full max-w-xs text-center shadow-lg">
@@ -89,6 +117,7 @@
     const db = getDatabase(app);
     const auth = getAuth(app);
 
+    // Cloudinary Credentials
     const CLOUDINARY_CLOUD_NAME = "v45qcglj";
     const CLOUDINARY_PRESET = "mariya_preset";
 
@@ -97,6 +126,11 @@
     window.isUploadingMap = {}; 
     let productsList = [];
     window.activeImgIndices = {};
+
+    let currentModalProductId = null;
+    let currentModalImgIndex = 0;
+    let touchStartX = 0;
+    let touchEndX = 0;
 
     onAuthStateChanged(auth, (user) => {
       if (user) {
@@ -153,7 +187,7 @@
 
       if (window.isAdmin) {
         htmlContent += `
-          <div onclick="addProduct()" class="add-card-btn bg-white p-2 rounded-xl border-2 border-dashed border-blue-400 flex flex-col items-center justify-center min-h-[180px] cursor-pointer hover:bg-blue-50 transition-colors shadow-sm">
+          <div onclick="addProduct()" class="bg-white p-2 rounded-xl border-2 border-dashed border-blue-400 flex flex-col items-center justify-center min-h-[180px] cursor-pointer hover:bg-blue-50 transition-colors shadow-sm">
             <span class="text-4xl text-blue-500 font-bold">+</span>
             <span class="text-xs text-blue-600 font-semibold mt-1">បន្ថែមទំនិញថ្មី</span>
           </div>
@@ -191,17 +225,12 @@
           <div class="bg-white p-2 rounded-xl border relative flex flex-col items-center shadow-sm">
             ${window.isAdmin ? `<button onclick="deleteProduct('${p.id}')" ${isCardUploading ? 'disabled' : ''} class="absolute top-1 right-1 bg-red-100 text-red-500 rounded-full w-6 h-6 flex items-center justify-center font-bold text-xs z-10 disabled:opacity-50">✕</button>` : ''}
             
-            <div class="relative group w-full flex flex-col items-center">
-              <div class="relative w-full flex justify-center">
+            <div class="relative group cursor-pointer w-full flex flex-col items-center">
+              <div class="relative w-full flex justify-center" onclick="openImageModal('${p.id}')">
                 <img src="${currentImgSrc}" class="w-28 h-36 object-cover rounded-lg">
-                <!-- ប៊ូតុង Download រហ័សនៅលើរូបភាពផ្ទាល់ -->
-                <button onclick="downloadProductImage('${p.id}', ${activeIdx})" title="ទាញយករូបភាព" class="absolute bottom-2 right-2 w-7 h-7 rounded-md bg-blue-600 hover:bg-blue-700 text-white flex items-center justify-center shadow-md active:scale-95 transition-all">
-                  <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                    <path d="M12 4v11"/>
-                    <path d="m7 11 5 5 5-5"/>
-                    <path d="M5 19h14"/>
-                  </svg>
-                </button>
+                <div class="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 bg-black/20 rounded-lg transition-opacity">
+                  <i class="fa-solid fa-magnifying-glass-plus text-white text-lg"></i>
+                </div>
               </div>
 
               ${images.length > 1 ? `
@@ -307,6 +336,8 @@
 
           if (data.secure_url) {
             currentImages.push(data.secure_url);
+          } else {
+            console.error("Cloudinary upload failed: ", data);
           }
         } catch (err) {
           console.error("Cloudinary Upload error: ", err);
@@ -411,22 +442,106 @@
       document.getElementById("admin-pass").value = "";
     };
 
-    // មុខងារ Download រូបភាពផ្ទាល់ពីលើកាតទំនិញ
-    window.downloadProductImage = function(productId, imgIndex) {
-      const product = productsList.find(p => p.id === productId);
+    window.openImageModal = function(productId) {
+      currentModalProductId = productId;
+      currentModalImgIndex = window.activeImgIndices[productId] || 0;
+      updateModalImage();
+      document.getElementById("image-modal").classList.remove("hidden");
+    };
+
+    window.closeImageModal = function() {
+      document.getElementById("image-modal").classList.add("hidden");
+      currentModalProductId = null;
+    };
+
+    function updateModalImage() {
+      const product = productsList.find(p => p.id === currentModalProductId);
       if (!product || !product.images) return;
 
-      const imgUrl = product.images[imgIndex];
-      const link = document.createElement("a");
-      link.href = imgUrl;
-      link.target = "_blank";
-      link.rel = "noopener noreferrer";
-      link.download = `mariya_${product.id}_${imgIndex + 1}.jpg`;
+      const images = product.images;
+      const imgElem = document.getElementById("enlarged-img");
+      const counterElem = document.getElementById("modal-img-counter");
+      const prevBtn = document.getElementById("modal-prev-btn");
+      const nextBtn = document.getElementById("modal-next-btn");
 
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      imgElem.src = images[currentModalImgIndex];
+      counterElem.innerText = `${currentModalImgIndex + 1} / ${images.length}`;
+
+      if (images.length > 1) {
+        prevBtn.classList.remove("hidden");
+        nextBtn.classList.remove("hidden");
+      } else {
+        prevBtn.classList.add("hidden");
+        nextBtn.classList.add("hidden");
+      }
+    }
+
+    window.nextModalImage = function() {
+      const product = productsList.find(p => p.id === currentModalProductId);
+      if (!product || !product.images) return;
+      currentModalImgIndex = (currentModalImgIndex + 1) % product.images.length;
+      updateModalImage();
     };
+
+    window.prevModalImage = function() {
+      const product = productsList.find(p => p.id === currentModalProductId);
+      if (!product || !product.images) return;
+      currentModalImgIndex = (currentModalImgIndex - 1 + product.images.length) % product.images.length;
+      updateModalImage();
+    };
+
+    // មុខងារ Download រូបភាពចូលទូរស័ព្ទ/កុំព្យូទ័រ
+    window.downloadModalImage = async function() {
+      const product = productsList.find(p => p.id === currentModalProductId);
+      if (!product || !product.images) return;
+
+      const imgUrl = product.images[currentModalImgIndex];
+      const iconElem = document.getElementById("download-icon");
+      const spinnerElem = document.getElementById("download-spinner");
+
+      iconElem.classList.add("hidden");
+      spinnerElem.classList.remove("hidden");
+
+      try {
+        const response = await fetch(imgUrl);
+        const blob = await response.blob();
+        const blobUrl = URL.createObjectURL(blob);
+
+        const link = document.createElement("a");
+        link.href = blobUrl;
+        link.download = `mariya_${product.id}_${currentModalImgIndex + 1}.jpg`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(blobUrl);
+      } catch (err) {
+        // ប្រសិនបើ Browser ខ្លះរារាំង CORS ឱ្យបើករូបភាពផ្ទាល់ដើម្បី Save
+        window.open(imgUrl, "_blank");
+      } finally {
+        iconElem.classList.remove("hidden");
+        spinnerElem.classList.add("hidden");
+      }
+    };
+
+    const touchArea = document.getElementById("modal-touch-area");
+
+    touchArea.addEventListener("touchstart", (e) => {
+      touchStartX = e.changedTouches[0].screenX;
+    }, { passive: true });
+
+    touchArea.addEventListener("touchend", (e) => {
+      touchEndX = e.changedTouches[0].screenX;
+      handleSwipe();
+    }, { passive: true });
+
+    function handleSwipe() {
+      const swipeDistance = touchEndX - touchStartX;
+      if (swipeDistance < -50) {
+        window.nextModalImage();
+      } else if (swipeDistance > 50) {
+        window.prevModalImage();
+      }
+    }
   </script>
 </body>
 </html>
